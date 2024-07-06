@@ -2,15 +2,13 @@ import Testing
 import Foundation
 @testable import JSONLDDecoder
 
-struct Person: Decodable {
-    let name: String
-    let age: Int
+struct Recipe: Codable {
+    let title: String
 }
 
 let jsonData = """
         {
-            "name": "John Doe",
-            "age": 30
+            "title": "Cupcakes"
         }
         """.data(using: .utf8)!
 
@@ -22,9 +20,8 @@ func testDecoder(jsonData: Data) async throws {
     let decoder = RecipeJSONLDDecoder()
 
     do {
-        let person = try decoder.decode(Person.self, from: jsonData)
-        #expect(person.name == "John Doe")
-        #expect(person.age == 30)
+        let recipe = try decoder.decode(Recipe.self, from: jsonData)
+        #expect(recipe.title == "Cupcakes")
     } catch {
         Issue.record("Decoding failed with error: \(error)")
     }

@@ -7,7 +7,9 @@ public struct RecipeJSONLDDecoder {
         self.decoder = decoder
     }
 
-    public func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+    public func decode<T: Codable>(_ type: T.Type, from data: Data) throws -> T {
         return try decoder.decode(T.self, from: data)
     }
+
+
 }
