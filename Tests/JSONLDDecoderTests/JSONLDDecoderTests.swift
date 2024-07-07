@@ -2,31 +2,55 @@ import Testing
 import Foundation
 @testable import JSONLDDecoder
 
-struct Recipe: Codable {
-    let title: String
+struct Recipe: Decodable {
+    var name: String?
+    @NestedDecodable<String?, AuthorCodingKeys>
+    var author: String?
+
+    enum AuthorCodingKeys: String, CodingKey, CaseIterable {
+        case name
+    }
 }
 
-let jsonData = """
-        {
-            "title": "Cupcakes"
-        }
-        """.data(using: .utf8)!
+let jsonPersonData = """
+{
+    "name": "Cupcakes",
+    "author": { "@type": "Person", "name": "Mary Cope" },
+    "notRelavant": "nothing"
+}
+""".data(using: .utf8)!
 
-@Test("Return name", arguments: [
-    jsonData
+let jsonOrganizationData = """
+{
+    "name": "Cupcakes",
+     "author": {
+        "@type": "Organization",
+        "name": "Bananaland"
+      },
+    "notRelavant": "nothing"
+}
+""".data(using: .utf8)!
+
+@Test("Return nested author name", arguments: [
+    jsonPersonData, jsonOrganizationData
 ])
 
 func testDecoder(jsonData: Data) async throws {
     let decoder = RecipeJSONLDDecoder()
 
     do {
-        let recipe = try decoder.decode(Recipe.self, from: jsonData)
-        #expect(recipe.title == "Cupcakes")
+        let recipe = try decoder.decode(Recipe.self, from: jsonPersonData)
+        #expect(recipe.author == "Mary Cope")
     } catch {
         Issue.record("Decoding failed with error: \(error)")
     }
 
+    do {
+        let recipe = try decoder.decode(Recipe.self, from: jsonOrganizationData)
+        #expect(recipe.author == "Bananaland")
+    } catch {
+        Issue.record("Decoding failed with error: \(error)")
+    }
 }
-
 
 
