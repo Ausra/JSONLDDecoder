@@ -14,6 +14,34 @@ public struct RecipeJSONLDDecoder {
 }
 
 @propertyWrapper
+public struct StringArrayDecodable: Decodable {
+    public var wrappedValue: [String]?
+
+    public init(wrappedValue: [String]?) {
+        self.wrappedValue = wrappedValue
+    }
+
+    public init(from decoder: Decoder) throws {
+        let singleValueContainer = try? decoder.singleValueContainer()
+
+        if let container = singleValueContainer {
+            if let value = try? container.decode(String.self) {
+                self.wrappedValue = [value]
+            } else if let arrayValue = try? container.decode([String].self) {
+                self.wrappedValue = arrayValue
+            } else if let intValue = try? container.decode(Int.self) {
+                self.wrappedValue = [String(intValue)]
+            } else {
+                self.wrappedValue = nil
+            }
+        } else {
+            self.wrappedValue = nil
+        }
+    }
+}
+
+
+@propertyWrapper
 public struct NestedDecodable<T: Decodable, Keys: CodingKey & CaseIterable>: Decodable {
     public var wrappedValue: T
 
