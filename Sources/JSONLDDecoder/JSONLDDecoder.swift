@@ -80,4 +80,46 @@ public struct NestedDecodable<T: Decodable, Keys: CodingKey & CaseIterable>: Dec
     }
 }
 
+@propertyWrapper
+public struct ArrayNestedDecodable<T: Decodable, Keys: CodingKey & CaseIterable>: Decodable {
+    public var wrappedValue: [T]?
+
+    public init(wrappedValue: [T]?) {
+        self.wrappedValue = wrappedValue
+    }
+
+    public init(from decoder: Decoder) throws {
+        if let singleValueContainer = try? decoder.singleValueContainer() {
+            if let value = try? singleValueContainer.decode(T.self) {
+                self.wrappedValue = [value]
+                return
+            } else if let arrayValue = try? singleValueContainer.decode([T].self) {
+                self.wrappedValue = arrayValue
+                return
+            }
+        }
+
+        let container = try decoder.container(keyedBy: Keys.self)
+        self.wrappedValue = try ArrayNestedDecodable.decodeFromNestedContainer(container)
+    }
+
+    private static func decodeFromNestedContainer(_ container: KeyedDecodingContainer<Keys>) throws -> [T] {
+        var nestedContainer = container
+        let allKeys = Array(Keys.allCases)
+
+        for key in allKeys.dropLast() {
+            nestedContainer = try nestedContainer.nestedContainer(keyedBy: Keys.self, forKey: key)
+        }
+
+        if let lastKey = allKeys.last {
+            // Handle single object within the nested container
+            if let value = try? nestedContainer.decode(T.self, forKey: lastKey) {
+                return [value]
+            }
+            // TODO handle array of objects
+        }
+
+        throw DecodingError.dataCorruptedError(forKey: Keys.allCases.first!, in: container, debugDescription: "No valid keys found for nested decoding.")
+    }
+}
 

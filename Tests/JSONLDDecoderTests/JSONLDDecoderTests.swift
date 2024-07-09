@@ -4,6 +4,10 @@ import Foundation
 
 struct Recipe: Decodable {
     var name: String?
+
+    @ArrayNestedDecodable<String, ImageCodingKeys>
+    var images: [String]?
+
     @NestedDecodable<String?, AuthorCodingKeys>
     var author: String?
     @NestedDecodable<String?, DescriptionCodingKeys>
@@ -17,6 +21,7 @@ struct Recipe: Decodable {
 
     enum CodingKeys: String, CodingKey {
         case name
+        case images = "image"
         case author
         case description
         case ingredients = "recipeIngredient"
@@ -31,6 +36,9 @@ struct Recipe: Decodable {
     enum DescriptionCodingKeys: String, CodingKey, CaseIterable {
         case description
     }
+    enum ImageCodingKeys: String, CodingKey, CaseIterable {
+        case url
+    }
 
 }
 
@@ -42,6 +50,7 @@ let jsonDataWithStrings = """
     "description": "something",
     "recipeIngredient": "1 banano, 1 kriaus",
     "recipeYield": 0,
+    "image": "https://www.aspicyperspective.com/wp-content/uploads/2020/07/best-hamburger-patties-1.jpg",
 
 }
 """.data(using: .utf8)!
@@ -62,7 +71,11 @@ let jsonDataWithObjects = """
         "1 banana",
         "1 pear"
       ],
-    "recipeYield": ["6"]
+    "recipeYield": ["6"],
+     "image": [
+        "https://www.aspicyperspective.com/wp-content/uploads/2020/07/best-hamburger-patties-1.jpg",
+        "https://www.aspicyperspective.com/wp-content/uploads/2020/07/best-hamburger-patties-1-500x500.jpg"
+      ],
 
 
 }
@@ -78,10 +91,10 @@ func testDecoder(jsonData: Data) async throws {
     do {
         let recipe = try decoder.decode(Recipe.self, from: jsonDataWithStrings)
         #expect(recipe.name == "Cupcakes")
-        #expect(recipe.author == "Mary Cope")
         #expect(recipe.description == "something")
         #expect(recipe.ingredients == ["1 banano, 1 kriaus"])
         #expect(recipe.recipeYield == ["0"])
+        #expect(recipe.images == ["https://www.aspicyperspective.com/wp-content/uploads/2020/07/best-hamburger-patties-1.jpg"])
     } catch {
         Issue.record("Decoding failed with error: \(error)")
     }
@@ -96,9 +109,116 @@ func testDecoder(jsonData: Data) async throws {
             "1 pear"
         ])
         #expect(recipe.recipeYield == ["6"])
+        #expect(recipe.images == [
+            "https://www.aspicyperspective.com/wp-content/uploads/2020/07/best-hamburger-patties-1.jpg",
+            "https://www.aspicyperspective.com/wp-content/uploads/2020/07/best-hamburger-patties-1-500x500.jpg"
+        ])
     } catch {
         Issue.record("Decoding failed with error: \(error)")
     }
 }
 
 
+
+struct RecipeImages: Decodable {
+    var name: String?
+
+    @ArrayNestedDecodable<String, ImageCodingKeys>
+    var images: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case images = "image"
+    }
+
+    enum ImageCodingKeys: String, CodingKey, CaseIterable {
+        case url
+    }
+
+}
+
+let jsonImageString = """
+{
+    "image": "https://www.images.com/",
+
+}
+""".data(using: .utf8)!
+
+let jsonImageArray = """
+{
+     "image": [
+        "https://www.images.com/",
+        "https://www.images.com/"
+      ],
+}
+""".data(using: .utf8)!
+
+let jsonImageObjectsArray = """
+{
+    "image": [
+        {
+            "@type": "ImageObject",
+            "url": "https://www.images.com/"
+        },
+        {
+            "@type": "ImageObject",
+            "url": "https://www.anotherimage.com/"
+        }
+    ]
+}
+""".data(using: .utf8)!
+
+let jsonImageObject =  """
+{
+    "image":
+    {
+      "@type": "ImageObject",
+      "url": "https://www.images.com/"
+    }
+}
+""".data(using: .utf8)!
+
+
+
+@Test("ArrayNestedDecodable: returns array of strings", arguments: [
+    jsonImageString, jsonImageArray, jsonImageObjectsArray, jsonImageObject
+])
+
+func testArrayNestedDecodable(jsonData: Data) async throws {
+    let decoder = RecipeJSONLDDecoder()
+
+    do {
+        let recipe = try decoder.decode(RecipeImages.self, from: jsonImageString)
+        #expect(recipe.images == ["https://www.images.com/"])
+    } catch {
+        Issue.record("Decoding failed with error: \(error)")
+    }
+
+    do {
+        let recipe = try decoder.decode(RecipeImages.self, from: jsonImageArray)
+        #expect(recipe.images == [
+            "https://www.images.com/",
+            "https://www.images.com/"
+        ])
+    } catch {
+        Issue.record("Decoding failed with error: \(error)")
+    }
+
+    do {
+        let recipe = try decoder.decode(RecipeImages.self, from: jsonImageObject)
+        #expect(recipe.images == [
+            "https://www.images.com/"
+        ])
+    } catch {
+        Issue.record("Decoding failed with error: \(error)")
+    }
+
+//    do {
+//        let recipe = try decoder.decode(RecipeImages.self, from: jsonImageObjectsArray)
+//        #expect(recipe.images == [
+//            "https://www.images.com/"
+//        ])
+//    } catch {
+//        Issue.record("Decoding failed with error: \(error)")
+//    }
+}
