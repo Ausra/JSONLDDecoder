@@ -14,7 +14,7 @@ public struct RecipeJSONLDDecoder {
 }
 
 @propertyWrapper
-public struct StringArrayDecodable: Decodable {
+public struct StringDecoder: Decodable {
     public var wrappedValue: [String]?
 
     public init(wrappedValue: [String]?) {
