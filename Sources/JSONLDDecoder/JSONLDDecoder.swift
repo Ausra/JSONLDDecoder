@@ -81,7 +81,7 @@ public struct NestedDecodable<T: Decodable, Keys: CodingKey & CaseIterable>: Dec
 }
 
 @propertyWrapper
-public struct ArrayNestedDecodable<T: Decodable, Keys: CodingKey & CaseIterable>: Decodable {
+public struct NestedArrayDecoder<T: Decodable, Keys: CodingKey & CaseIterable>: Decodable {
     public var wrappedValue: [T]?
 
     public init(wrappedValue: [T]?) {
@@ -89,37 +89,82 @@ public struct ArrayNestedDecodable<T: Decodable, Keys: CodingKey & CaseIterable>
     }
 
     public init(from decoder: Decoder) throws {
-        if let singleValueContainer = try? decoder.singleValueContainer() {
+        // Attempt to decode nested object
+        if let container = try? decoder.container(keyedBy: Keys.self), let wrappedValue = try? NestedArrayDecoder.decodeNestedContainer(container) {
+            self.wrappedValue = wrappedValue
+            return
+        // Attempt to decode array with nested objects
+        } else if var unkeyedContainer = try? decoder.unkeyedContainer(), let value = try? NestedArrayDecoder.decodeNestedArray(&unkeyedContainer, using: Array(Keys.allCases))  {
+            self.wrappedValue = value
+            return
+        } else if let singleValueContainer = try? decoder.singleValueContainer() {
+            // Attempt to decode single string
             if let value = try? singleValueContainer.decode(T.self) {
                 self.wrappedValue = [value]
                 return
+                // Attempt to decode array of strings
             } else if let arrayValue = try? singleValueContainer.decode([T].self) {
                 self.wrappedValue = arrayValue
                 return
             }
         }
-
-        let container = try decoder.container(keyedBy: Keys.self)
-        self.wrappedValue = try ArrayNestedDecodable.decodeFromNestedContainer(container)
     }
 
-    private static func decodeFromNestedContainer(_ container: KeyedDecodingContainer<Keys>) throws -> [T] {
+    private static func decodeNestedContainer(_ container: KeyedDecodingContainer<Keys>) throws -> [T]? {
         var nestedContainer = container
         let allKeys = Array(Keys.allCases)
+        guard let firstKey = allKeys.first else {
+            throw DecodingError.dataCorruptedError(forKey: allKeys.first!, in: container, debugDescription: "No nested keys found.")
+        }
 
+        // iterate through key path
         for key in allKeys.dropLast() {
             nestedContainer = try nestedContainer.nestedContainer(keyedBy: Keys.self, forKey: key)
         }
 
         if let lastKey = allKeys.last {
-            // Handle single object within the nested container
+            // Decode single object within the nested container using last key in the key path
             if let value = try? nestedContainer.decode(T.self, forKey: lastKey) {
                 return [value]
             }
-            // TODO handle array of objects
         }
 
-        throw DecodingError.dataCorruptedError(forKey: Keys.allCases.first!, in: container, debugDescription: "No valid keys found for nested decoding.")
+        throw DecodingError.dataCorruptedError(forKey: firstKey, in: nestedContainer, debugDescription: "Missing expected key for nested decoding.")
     }
+
+    private static func decodeNestedArray(_ container: inout UnkeyedDecodingContainer, using keys: [Keys]) throws -> [T] {
+        var result: [T] = []
+        //iterate through array objects
+        while !container.isAtEnd {
+            var nestedContainer = try container.nestedContainer(keyedBy: DynamicCodingKey.self)
+            let allKeys = keys
+
+            for key in allKeys.dropLast() {
+                nestedContainer = try nestedContainer.nestedContainer(keyedBy: DynamicCodingKey.self, forKey: DynamicCodingKey(stringValue: key.stringValue)!)
+            }
+
+            if let lastKey = allKeys.last {
+                // Handle single object within the nested container
+                if let value = try? nestedContainer.decode(T.self, forKey: DynamicCodingKey(stringValue: lastKey.stringValue)!) {
+                    result.append(value)
+                }
+            }
+        }
+        return result
+    }
+
+    struct DynamicCodingKey: CodingKey {
+        var stringValue: String
+        init?(stringValue: String) {
+            self.stringValue = stringValue
+        }
+
+        var intValue: Int?
+        init?(intValue: Int) {
+            self.intValue = intValue
+            self.stringValue = "\(intValue)"
+        }
+    }
+
 }
 

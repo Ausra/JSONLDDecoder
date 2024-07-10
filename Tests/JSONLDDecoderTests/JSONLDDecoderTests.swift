@@ -5,7 +5,7 @@ import Foundation
 struct Recipe: Decodable {
     var name: String?
 
-    @ArrayNestedDecodable<String, ImageCodingKeys>
+    @NestedArrayDecoder<String, ImageCodingKeys>
     var images: [String]?
 
     @NestedDecodable<String?, AuthorCodingKeys>
@@ -123,7 +123,7 @@ func testDecoder(jsonData: Data) async throws {
 struct RecipeImages: Decodable {
     var name: String?
 
-    @ArrayNestedDecodable<String, ImageCodingKeys>
+    @NestedArrayDecoder<String, ImageCodingKeys>
     var images: [String]?
 
     enum CodingKeys: String, CodingKey {
@@ -213,12 +213,13 @@ func testArrayNestedDecodable(jsonData: Data) async throws {
         Issue.record("Decoding failed with error: \(error)")
     }
 
-//    do {
-//        let recipe = try decoder.decode(RecipeImages.self, from: jsonImageObjectsArray)
-//        #expect(recipe.images == [
-//            "https://www.images.com/"
-//        ])
-//    } catch {
-//        Issue.record("Decoding failed with error: \(error)")
-//    }
+    do {
+        let recipe = try decoder.decode(RecipeImages.self, from: jsonImageObjectsArray)
+        #expect(recipe.images == [
+            "https://www.images.com/",
+            "https://www.anotherimage.com/"
+        ])
+    } catch {
+        Issue.record("Decoding failed with error: \(error)")
+    }
 }
