@@ -42,7 +42,7 @@ public struct StringDecoder: Decodable {
 
 
 @propertyWrapper
-public struct NestedDecodable<T: Decodable, Keys: CodingKey & CaseIterable>: Decodable {
+public struct NestedObjectsDecoder<T: Decodable, Keys: CodingKey & CaseIterable>: Decodable {
     public var wrappedValue: T
 
     public init(wrappedValue: T) {
@@ -56,12 +56,11 @@ public struct NestedDecodable<T: Decodable, Keys: CodingKey & CaseIterable>: Dec
         } else {
             // If direct decoding fails, attempt to decode as a nested container
             let container = try decoder.container(keyedBy: Keys.self)
-            self.wrappedValue = try NestedDecodable.decodeFromNestedContainer(container, nestedKeysType: Keys.self)
+            self.wrappedValue = try NestedObjectsDecoder.decodeNestedContainer(container, nestedKeysType: Keys.self)
         }
-
     }
 
-    private static func decodeFromNestedContainer<NestedKeys: CodingKey & CaseIterable>(_ container: KeyedDecodingContainer<NestedKeys>, nestedKeysType: NestedKeys.Type) throws -> T {
+    private static func decodeNestedContainer<NestedKeys: CodingKey & CaseIterable>(_ container: KeyedDecodingContainer<NestedKeys>, nestedKeysType: NestedKeys.Type) throws -> T {
         let allKeys = Array(NestedKeys.allCases)
         guard let firstKey = allKeys.first else {
             throw DecodingError.dataCorruptedError(forKey: allKeys.first!, in: container, debugDescription: "No nested keys found.")
@@ -81,7 +80,7 @@ public struct NestedDecodable<T: Decodable, Keys: CodingKey & CaseIterable>: Dec
 }
 
 @propertyWrapper
-public struct NestedArrayDecoder<T: Decodable, Keys: CodingKey & CaseIterable>: Decodable {
+public struct ArrayOfNestedObjectsDecoder<T: Decodable, Keys: CodingKey & CaseIterable>: Decodable {
     public var wrappedValue: [T]?
 
     public init(wrappedValue: [T]?) {
@@ -90,11 +89,11 @@ public struct NestedArrayDecoder<T: Decodable, Keys: CodingKey & CaseIterable>: 
 
     public init(from decoder: Decoder) throws {
         // Attempt to decode nested object
-        if let container = try? decoder.container(keyedBy: Keys.self), let wrappedValue = try? NestedArrayDecoder.decodeNestedContainer(container) {
+        if let container = try? decoder.container(keyedBy: Keys.self), let wrappedValue = try? ArrayOfNestedObjectsDecoder.decodeNestedContainer(container) {
             self.wrappedValue = wrappedValue
             return
         // Attempt to decode array with nested objects
-        } else if var unkeyedContainer = try? decoder.unkeyedContainer(), let value = try? NestedArrayDecoder.decodeNestedArray(&unkeyedContainer, using: Array(Keys.allCases))  {
+        } else if var unkeyedContainer = try? decoder.unkeyedContainer(), let value = try? ArrayOfNestedObjectsDecoder.decodeNestedArray(&unkeyedContainer, using: Array(Keys.allCases))  {
             self.wrappedValue = value
             return
         } else if let singleValueContainer = try? decoder.singleValueContainer() {
