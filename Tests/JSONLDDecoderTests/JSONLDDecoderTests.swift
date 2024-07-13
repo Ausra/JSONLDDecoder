@@ -6,7 +6,6 @@ import Foundation
     struct RecipeYield: Decodable {
         @StringArrayDecoder
         var recipeYield: [String]?
-        
     }
     
     let jsonInt = """

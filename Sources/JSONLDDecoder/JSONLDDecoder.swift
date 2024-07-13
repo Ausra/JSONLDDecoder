@@ -20,20 +20,6 @@ public struct StringArrayDecoder: Decodable {
     public init(wrappedValue: [String]?) {
         self.wrappedValue = wrappedValue
     }
-    
-    public init(from decoder: Decoder) throws {
-        let singleValueContainer = try decoder.singleValueContainer()
-        
-        if let value = try? singleValueContainer.decode(String.self) {
-            self.wrappedValue = [value]
-        } else if let arrayValue = try? singleValueContainer.decode([String].self) {
-            self.wrappedValue = arrayValue
-        } else if let intValue = try? singleValueContainer.decode(Int.self) {
-            self.wrappedValue = [String(intValue)]
-        } else {
-            self.wrappedValue = nil
-        }
-    }
 }
 
 
@@ -165,8 +151,12 @@ public struct ArrayOfNestedObjectsDecoder<T: Decodable, Keys: CodingKey & CaseIt
 
 extension KeyedDecodingContainer {
     func decode(_ type: StringArrayDecoder.Type, forKey key: Key) throws -> StringArrayDecoder {
-        if let value = try decodeIfPresent(StringArrayDecoder.self, forKey: key) {
-            return value
+        if let stringValue = try? decode(String.self, forKey: key) {
+            return StringArrayDecoder(wrappedValue: [stringValue])
+        } else if let arrayValue = try? decode([String].self, forKey: key) {
+            return StringArrayDecoder(wrappedValue: arrayValue)
+        } else if let intValue = try? decode(Int.self, forKey: key) {
+            return StringArrayDecoder(wrappedValue: [String(intValue)])
         } else {
             return StringArrayDecoder(wrappedValue: nil)
         }
