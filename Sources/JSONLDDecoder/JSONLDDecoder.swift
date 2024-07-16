@@ -70,85 +70,6 @@ public struct ArrayOfNestedObjectsDecoder<T: Decodable, Keys: CodingKey & CaseIt
     public init(wrappedValue: [T]?) {
         self.wrappedValue = wrappedValue
     }
-    
-    public init(from decoder: Decoder) throws {
-        // Attempt to decode nested object
-        if let container = try? decoder.container(keyedBy: Keys.self), let wrappedValue = try? ArrayOfNestedObjectsDecoder.decodeNestedContainer(container) {
-            self.wrappedValue = wrappedValue
-            return
-            // Attempt to decode array with nested objects
-        } else if var unkeyedContainer = try? decoder.unkeyedContainer(), let value = try? ArrayOfNestedObjectsDecoder.decodeNestedArray(&unkeyedContainer, using: Array(Keys.allCases))  {
-            self.wrappedValue = value
-            return
-        } else if let singleValueContainer = try? decoder.singleValueContainer() {
-            // Attempt to decode single string
-            if let value = try? singleValueContainer.decode(T.self) {
-                self.wrappedValue = [value]
-                return
-                // Attempt to decode array of strings
-            } else if let arrayValue = try? singleValueContainer.decode([T].self) {
-                self.wrappedValue = arrayValue
-                return
-            }
-        }
-    }
-    
-    private static func decodeNestedContainer(_ container: KeyedDecodingContainer<Keys>) throws -> [T]? {
-        var nestedContainer = container
-        let allKeys = Array(Keys.allCases)
-        guard let firstKey = allKeys.first else {
-            throw DecodingError.dataCorruptedError(forKey: allKeys.first!, in: container, debugDescription: "No nested keys found.")
-        }
-        
-        // iterate through key path
-        for key in allKeys.dropLast() {
-            nestedContainer = try nestedContainer.nestedContainer(keyedBy: Keys.self, forKey: key)
-        }
-        
-        if let lastKey = allKeys.last {
-            // Decode single object within the nested container using last key in the key path
-            if let value = try? nestedContainer.decode(T.self, forKey: lastKey) {
-                return [value]
-            }
-        }
-        
-        throw DecodingError.dataCorruptedError(forKey: firstKey, in: nestedContainer, debugDescription: "Missing expected key for nested decoding.")
-    }
-    
-    private static func decodeNestedArray(_ container: inout UnkeyedDecodingContainer, using keys: [Keys]) throws -> [T] {
-        var result: [T] = []
-        //iterate through array objects
-        while !container.isAtEnd {
-            var nestedContainer = try container.nestedContainer(keyedBy: DynamicCodingKey.self)
-            let allKeys = keys
-            
-            for key in allKeys.dropLast() {
-                nestedContainer = try nestedContainer.nestedContainer(keyedBy: DynamicCodingKey.self, forKey: DynamicCodingKey(stringValue: key.stringValue)!)
-            }
-            
-            if let lastKey = allKeys.last {
-                // Handle single object within the nested container
-                if let value = try? nestedContainer.decode(T.self, forKey: DynamicCodingKey(stringValue: lastKey.stringValue)!) {
-                    result.append(value)
-                }
-            }
-        }
-        return result
-    }
-    
-     struct DynamicCodingKey: CodingKey {
-        var stringValue: String
-        init?(stringValue: String) {
-            self.stringValue = stringValue
-        }
-        
-        var intValue: Int?
-        init?(intValue: Int) {
-            self.intValue = intValue
-            self.stringValue = "\(intValue)"
-        }
-    }
-    
 }
 
 @propertyWrapper
@@ -200,4 +121,86 @@ extension KeyedDecodingContainer {
             return AdaptiveArrayDecoder(wrappedValue: nil)
         }
     }
+
+    public func decode<T, NestedKeys>(_: ArrayOfNestedObjectsDecoder<T, NestedKeys>.Type, forKey key: Key) throws ->  ArrayOfNestedObjectsDecoder<T, NestedKeys> {
+        if let stringValue = try? decodeIfPresent(String.self, forKey: key) {
+            if let wrappedValue = stringValue as? T {
+                return ArrayOfNestedObjectsDecoder(wrappedValue: [wrappedValue])
+            } else {
+                throw DecodingError.typeMismatch(T.self, DecodingError.Context(codingPath: [key], debugDescription: "Expected value of type \(T.self) but found a String."))
+            }
+        } else if let arrayValue = try? decodeIfPresent([String].self, forKey: key) {
+            if let wrappedValue = arrayValue as? [T] {
+                return ArrayOfNestedObjectsDecoder(wrappedValue: wrappedValue)
+            } else {
+                throw DecodingError.typeMismatch([T].self, DecodingError.Context(codingPath: [key], debugDescription: "Expected value of type [\(T.self)] but found an array of Strings."))
+            }
+        } else if let container = try? nestedContainer(keyedBy: NestedKeys.self, forKey: key), let wrappedValue = try? decodeNestedContainer(container) {
+            return ArrayOfNestedObjectsDecoder(wrappedValue: wrappedValue)
+        } else if var unkeyedContainer = try? nestedUnkeyedContainer(forKey: key), let wrappedValue = try? decodeNestedArray(&unkeyedContainer, using: Array(NestedKeys.allCases)) {
+                    return ArrayOfNestedObjectsDecoder(wrappedValue: wrappedValue)
+        }
+        else {
+            return ArrayOfNestedObjectsDecoder(wrappedValue: nil)
+        }
+
+         func decodeNestedContainer<Keys>(_ container: KeyedDecodingContainer<Keys>) throws -> [T]? where Keys: CodingKey & CaseIterable {
+             let allKeys = Array(Keys.allCases)
+             guard let firstKey = allKeys.first else {
+                 throw DecodingError.dataCorruptedError(forKey: allKeys.first!, in: container, debugDescription: "Missing expected key for nested decoding.")
+             }
+
+             var nestedContainer = container
+             for key in allKeys.dropLast() {
+                 nestedContainer = try nestedContainer.nestedContainer(keyedBy: Keys.self, forKey: key)
+             }
+
+             if let lastKey = allKeys.last, let value = try? nestedContainer.decode(T.self, forKey: lastKey) {
+                 return [value]
+             }
+
+             throw DecodingError.dataCorruptedError(forKey: firstKey, in: nestedContainer, debugDescription: "Missing expected key for nested decoding.")
+        }
+
+        func decodeNestedArray<Keys>(_ container: inout UnkeyedDecodingContainer, using keys: [Keys]) throws -> [T] where Keys: CodingKey & CaseIterable {
+            var result: [T] = []
+            while !container.isAtEnd {
+                var nestedContainer = try container.nestedContainer(keyedBy: DynamicCodingKey.self)
+                let allKeys = keys
+
+                for key in allKeys.dropLast() {
+                    nestedContainer = try nestedContainer.nestedContainer(keyedBy: DynamicCodingKey.self, forKey: DynamicCodingKey(stringValue: key.stringValue)!)
+                }
+
+                if let lastKey = allKeys.last, let value = try? nestedContainer.decode(T.self, forKey: DynamicCodingKey(stringValue: lastKey.stringValue)!) {
+                    result.append(value)
+                }
+            }
+            return result
+        }
+    }
+
+
 }
+
+
+extension CodingKey where Self: CaseIterable {
+    static var lastCase: Self? {
+        guard allCases.isEmpty == false else { return nil }
+        let lastIndex = allCases.index(allCases.endIndex, offsetBy: -1)
+        return allCases[lastIndex]
+    }
+}
+
+struct DynamicCodingKey: CodingKey {
+    var stringValue: String
+    init?(stringValue: String) {
+        self.stringValue = stringValue
+    }
+
+    var intValue: Int?
+    init?(intValue: Int) {
+        self.intValue = intValue
+        self.stringValue = "\(intValue)"
+    }
+    }
