@@ -199,7 +199,7 @@ import Foundation
 struct NestedObjectsDecoderTests {
 
     struct RecipeAuthor: Decodable {
-        @NestedObjectsDecoder<String?, AuthorCodingKeys>
+        @NestedObjectsDecoder<String, AuthorCodingKeys>
         var author: String?
 
         enum AuthorCodingKeys: String, CodingKey, CaseIterable {
