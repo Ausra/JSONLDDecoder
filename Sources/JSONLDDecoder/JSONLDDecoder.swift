@@ -1,6 +1,6 @@
 import Foundation
 
-public struct RecipeJSONLDDecoder {
+public struct RecipeJSONLDDecoder: Sendable {
     private let decoder: JSONDecoder
 
     public init(decoder: JSONDecoder = JSONDecoder()) {
@@ -14,7 +14,7 @@ public struct RecipeJSONLDDecoder {
 }
 
 @propertyWrapper
-public struct StringArrayDecoder: Decodable {
+public struct StringArrayDecoder: Decodable, Sendable {
     public var wrappedValue: [String]?
 
     public init(wrappedValue: [String]?) {
@@ -24,7 +24,7 @@ public struct StringArrayDecoder: Decodable {
 
 
 @propertyWrapper
-public struct NestedObjectsDecoder<T: Decodable, Keys: CodingKey & CaseIterable>: Decodable {
+public struct NestedObjectsDecoder<T: Decodable & Sendable, Keys: CodingKey & CaseIterable & Sendable>: Decodable, Sendable {
     public var wrappedValue: T?
 
     public init(wrappedValue: T?) {
@@ -35,7 +35,7 @@ public struct NestedObjectsDecoder<T: Decodable, Keys: CodingKey & CaseIterable>
 
 
 @propertyWrapper
-public struct ArrayOfNestedObjectsDecoder<T: Decodable, Keys: CodingKey & CaseIterable>: Decodable {
+public struct ArrayOfNestedObjectsDecoder<T: Decodable & Sendable, Keys: CodingKey & CaseIterable & Sendable>: Decodable, Sendable {
     public var wrappedValue: [T]?
 
     public init(wrappedValue: [T]?) {
@@ -44,7 +44,7 @@ public struct ArrayOfNestedObjectsDecoder<T: Decodable, Keys: CodingKey & CaseIt
 }
 
 @propertyWrapper
-public struct AdaptiveArrayDecoder<T: NestedObjectProtocol & Decodable>: Decodable {
+public struct AdaptiveArrayDecoder<T: NestedObjectProtocol & Decodable & Sendable>: Decodable, Sendable {
     public var wrappedValue: [T]?
 
     public init(wrappedValue: [T]?) {
@@ -52,12 +52,12 @@ public struct AdaptiveArrayDecoder<T: NestedObjectProtocol & Decodable>: Decodab
     }
 }
 
-public protocol NestedObjectProtocol: Decodable {
+public protocol NestedObjectProtocol: Decodable, Sendable {
     var text: String? { get }
     init(text: String?)
 }
 
-public struct NestedObject: NestedObjectProtocol, Decodable {
+public struct NestedObject: NestedObjectProtocol, Decodable, Sendable {
     public var text: String?
 
     public init(text: String?) {
@@ -93,7 +93,7 @@ extension KeyedDecodingContainer {
         }
     }
 
-    public func decode<T, NestedKeys>(_: ArrayOfNestedObjectsDecoder<T, NestedKeys>.Type, forKey key: Key) throws ->  ArrayOfNestedObjectsDecoder<T, NestedKeys> {
+    public func decode<T, NestedKeys>(_: ArrayOfNestedObjectsDecoder<T, NestedKeys>.Type, forKey key: Key) throws ->  ArrayOfNestedObjectsDecoder<T, NestedKeys>  where T: Decodable & Sendable, NestedKeys: CodingKey & CaseIterable & Sendable {
         if let stringValue = try? decodeIfPresent(String.self, forKey: key) {
             if let wrappedValue = stringValue as? T {
                 return ArrayOfNestedObjectsDecoder(wrappedValue: [wrappedValue])
@@ -115,7 +115,7 @@ extension KeyedDecodingContainer {
             return ArrayOfNestedObjectsDecoder(wrappedValue: nil)
         }
 
-        func decodeNestedContainer<Keys>(_ container: KeyedDecodingContainer<Keys>) throws -> [T]? where Keys: CodingKey & CaseIterable {
+        func decodeNestedContainer<Keys>(_ container: KeyedDecodingContainer<Keys>) throws -> [T]? where Keys: CodingKey & CaseIterable & Sendable {
             let allKeys = Array(Keys.allCases)
             guard let firstKey = allKeys.first else {
                 throw DecodingError.dataCorruptedError(forKey: allKeys.first!, in: container, debugDescription: "Missing expected key for nested decoding.")
@@ -133,7 +133,7 @@ extension KeyedDecodingContainer {
             throw DecodingError.dataCorruptedError(forKey: firstKey, in: nestedContainer, debugDescription: "Missing expected key for nested decoding.")
         }
 
-        func decodeNestedArray<Keys>(_ container: inout UnkeyedDecodingContainer, using keys: [Keys]) throws -> [T] where Keys: CodingKey & CaseIterable {
+        func decodeNestedArray<Keys>(_ container: inout UnkeyedDecodingContainer, using keys: [Keys]) throws -> [T] where Keys: CodingKey & CaseIterable & Sendable {
             var result: [T] = []
             while !container.isAtEnd {
                 var nestedContainer = try container.nestedContainer(keyedBy: DynamicCodingKey.self)
@@ -151,7 +151,7 @@ extension KeyedDecodingContainer {
         }
     }
 
-    public func decode<T, NestedKeys>(_: NestedObjectsDecoder<T, NestedKeys>.Type, forKey key: Key) throws -> NestedObjectsDecoder<T, NestedKeys> {
+    public func decode<T, NestedKeys>(_: NestedObjectsDecoder<T, NestedKeys>.Type, forKey key: Key) throws -> NestedObjectsDecoder<T, NestedKeys> where T: Decodable & Sendable, NestedKeys: CodingKey & CaseIterable & Sendable {
         if let stringValue = try? decodeIfPresent(String.self, forKey: key) {
             if let wrappedValue = stringValue as? T {
                 return NestedObjectsDecoder(wrappedValue: wrappedValue)
@@ -164,7 +164,7 @@ extension KeyedDecodingContainer {
             return NestedObjectsDecoder(wrappedValue: nil)
         }
 
-        func decodeNestedContainer<Keys>(_ container: KeyedDecodingContainer<Keys>) throws -> T? where Keys: CodingKey & CaseIterable {
+        func decodeNestedContainer<Keys>(_ container: KeyedDecodingContainer<Keys>) throws -> T? where Keys: CodingKey & CaseIterable & Sendable {
             let allKeys = Array(Keys.allCases)
             guard let firstKey = allKeys.first else {
                 throw DecodingError.dataCorruptedError(forKey: allKeys.first!, in: container, debugDescription: "Missing expected key for nested decoding.")
@@ -194,7 +194,7 @@ extension CodingKey where Self: CaseIterable {
     }
 }
 
-struct DynamicCodingKey: CodingKey {
+struct DynamicCodingKey: CodingKey, Sendable {
     var stringValue: String
     init?(stringValue: String) {
         self.stringValue = stringValue
