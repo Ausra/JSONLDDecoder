@@ -68,7 +68,7 @@ let decoder = RecipeJSONLDDecoder()
 let jsonData: Data = // your JSON data
 let decodedObject = try decoder.decode(YourDecodableType.self, from: jsonData)
 ```
-Then, add one of the property wrappers to enhance decoding of given model.
+Then, add any of the property wrappers to enhance decoding of given struct property.
 
 ### Property Wrappers
 
