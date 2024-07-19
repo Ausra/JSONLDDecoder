@@ -251,6 +251,10 @@ Given a JSON object like this:
 
 This will decode to `author.name = [ParsedAuthor(text: "John Adam", name: "John Adam")]`.
 
+## Example
+
+Full example of JSONLDDecoder in action can be found in [RecipeScraper](https://github.com/Ausra/RecipeScraper) package.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
