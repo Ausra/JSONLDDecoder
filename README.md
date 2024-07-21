@@ -1,6 +1,6 @@
 # JSONLD Decoder
 
-This Swift package provides utilities for decoding JSON-LD data structures, specifically tailored for json object that fits [Schema.org > Recipe](https://schema.org/Recipe) shape. The package includes a JSON decoder and several property wrappers to handle nested objects and arrays in a flexible manner.
+This Swift package provides property wrappers for decoding JSON-LD data structures, specifically tailored for json object that fits [Schema.org > Recipe](https://schema.org/Recipe) shape. 
 
 ## Features
 
